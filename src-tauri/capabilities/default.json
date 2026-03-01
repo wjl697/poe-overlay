@@ -10,6 +10,7 @@
     "core:default",
     "core:event:default",
     "core:window:default",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "store:default"
   ]
 }

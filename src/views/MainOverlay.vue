@@ -16,15 +16,20 @@ import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
-import { onMounted, ref, watch, nextTick } from 'vue';
+import { onMounted, onUnmounted, onBeforeUpdate, ref, watch, nextTick } from 'vue';
 
 const isDragOver = ref(false);
 const showDonate = ref(false);
+const showChapterMenu = ref(false);
 
 // 动态计算中心焦点的滚动位移
 const scrollOffsetY = ref(0);
 const scrollContainerRef = ref<HTMLElement | null>(null);
 const stepRefs = ref<HTMLElement[]>([]);
+
+onBeforeUpdate(() => {
+  stepRefs.value = [];
+});
 
 const updateScrollOffset = () => {
   if (!scrollContainerRef.value || stepRefs.value.length === 0) return;
@@ -59,6 +64,7 @@ const loadDocViaDialog = async () => {
     });
     if (selected && typeof selected === 'string') {
       await invoke('start_file_watcher', { path: selected });
+      await store.setDocumentPath(selected);
     }
   } catch (err) {
     console.error('Failed to open file dialog:', err);
@@ -87,26 +93,48 @@ const minimizeWindow = () => invoke('minimize_window');
 const closeWindow = () => invoke('close_window');
 
 const donateRef = ref<HTMLElement | null>(null);
+const chapterMenuRef = ref<HTMLElement | null>(null);
 
-// 点击外部关闭打赏弹窗
+// 点击外部关闭弹窗
 const onDocClick = (e: MouseEvent) => {
-  if (showDonate.value && donateRef.value && !donateRef.value.contains(e.target as Node)) {
+  const target = e.target as Node;
+  if (showDonate.value && donateRef.value && !donateRef.value.contains(target)) {
     showDonate.value = false;
+  }
+  if (showChapterMenu.value && chapterMenuRef.value && !chapterMenuRef.value.contains(target)) {
+    showChapterMenu.value = false;
   }
 };
 
-onMounted(async () => {
-  document.addEventListener('click', onDocClick, true);
-  await listen('action-bar-prev', () => store.prevStep());
-  await listen('action-bar-next', () => store.nextStep());
+// 保存所有 unlisten 函数，在组件卸载时清理，防止 HMR 时监听器累积
+let unlistenPrev: (() => void) | null = null;
+let unlistenNext: (() => void) | null = null;
+let unlistenParsed: (() => void) | null = null;
+let unlistenDragDrop: (() => void) | null = null;
 
-  await listen<{notes: string, steps: {id: string, chapter: string, text: string}[]}>('parsed-document', (event) => {
+onUnmounted(() => {
+  document.removeEventListener('click', onDocClick, true);
+  unlistenPrev?.();
+  unlistenNext?.();
+  unlistenParsed?.();
+  unlistenDragDrop?.();
+});
+
+onMounted(async () => {
+  // 加载持久化状态
+  await store.initializeStore();
+
+  document.addEventListener('click', onDocClick, true);
+  unlistenPrev = await listen('action-bar-prev', () => store.prevStep());
+  unlistenNext = await listen('action-bar-next', () => store.nextStep());
+
+  unlistenParsed = await listen<{notes: string, steps: {id: string, chapter: string, text: string}[]}>('parsed-document', (event) => {
     store.updateParsedDocument(event.payload);
   });
 
   // 使用 Tauri 原生拖拽事件，可靠获取本地文件路径
   const win = getCurrentWindow();
-  await win.onDragDropEvent(async (event) => {
+  unlistenDragDrop = await win.onDragDropEvent(async (event) => {
     if (event.payload.type === 'enter') {
       isDragOver.value = true;
     } else if (event.payload.type === 'leave') {
@@ -117,6 +145,7 @@ onMounted(async () => {
       const filePath = paths.find(p => p.endsWith('.md') || p.endsWith('.txt'));
       if (filePath) {
         await invoke('start_file_watcher', { path: filePath });
+        await store.setDocumentPath(filePath);
       }
     }
   });
@@ -172,8 +201,39 @@ onMounted(async () => {
       
       <!-- 控制按钮区 -->
       <div class="flex items-center gap-1" @mousedown.stop>
+        <!-- 章节目录 -->
+        <div ref="chapterMenuRef" class="relative" @mousedown.stop>
+          <button 
+            @click="showChapterMenu = !showChapterMenu" 
+            class="icon-btn" 
+            :class="store.chapterList.length > 0 ? 'text-blue-400 hover:text-blue-300' : 'text-gray-600 cursor-not-allowed'"
+            :disabled="store.chapterList.length === 0"
+            data-tip="章节跳转" 
+            data-pos="left"
+          >
+            📘
+          </button>
+          <!-- 章节目录弹窗菜单 -->
+          <Transition name="fade">
+            <div 
+              v-if="showChapterMenu" 
+              class="absolute top-full left-1/2 -translate-x-1/2 mt-2 py-2 w-40 max-h-[250px] overflow-y-auto bg-gray-900 border border-poe-gold/30 rounded shadow-xl z-50 custom-scrollbar"
+            >
+              <div 
+                v-for="chapter in store.chapterList" 
+                :key="chapter.startIndex"
+                class="px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white cursor-pointer transition-colors"
+                @click="() => { store.jumpToStep(chapter.startIndex); showChapterMenu = false; }"
+              >
+                {{ chapter.name }}
+              </div>
+            </div>
+          </Transition>
+        </div>
+        <div class="sep"></div>
+
         <!-- 加载文档 -->
-        <button @click="loadDocViaDialog" class="icon-btn text-blue-400" data-tip="加载文档" data-pos="left">
+        <button @click="loadDocViaDialog" class="icon-btn text-blue-400" data-tip="加载文档" data-pos="bottom">
           📂
         </button>
         <div class="sep"></div>
@@ -314,7 +374,7 @@ onMounted(async () => {
           <div 
             v-for="(step, index) in store.steps" 
             :key="step.id"
-            ref="stepRefs"
+            :ref="(el) => { if (el) stepRefs[index] = el as HTMLElement }"
             class="flex items-center w-full transform-origin-left my-2 transition-all duration-[250ms]"
             :class="[
               getStepClass(index),

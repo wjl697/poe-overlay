@@ -33,3 +33,4 @@ regex = "1.12.3"
 encoding_rs = "0.8.35"
 sha2 = "0.10.9"
 tokio = { version = "1.49.0", features = ["time"] }
+tauri-plugin-store = "2.0.0"
