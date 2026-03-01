@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --color-poe-gold: #cfa86d;
+  --color-poe-red: #8f1c1c;
+  --color-poe-blue: #30608f;
+  --color-poe-darkTheme: #090909;
+  --color-poe-dark-gem: #111111;
+  --color-poe-tarnished-bronze: #846D4B;
+  --color-poe-desaturated-gold: #B19B72;
+  --color-text-pure-white: #ffffff;
+}
+
+@layer utilities {
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+
+  .no-drag-region {
+    -webkit-app-region: no-drag;
+  }
+
+  .shadow-text-glow {
+    text-shadow: 0 0 5px var(--color-poe-gold);
+  }
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  /* 禁止原生滚动条和选中 */
+  overflow: hidden;
+  user-select: none;
+  background-color: transparent;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
