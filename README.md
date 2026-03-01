@@ -1,5 +1,210 @@
-# Vue 3 + TypeScript + Vite
+# POE Overlay V3
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+POE Overlay V3 是一个为《Path of Exile》剧情推进场景设计的桌面悬浮窗工具。应用基于 `Tauri 2 + Rust + Vue 3 + TypeScript + Pinia + Tailwind CSS` 构建，运行时提供一个主覆盖窗口和一个独立的迷你控制条，用来展示剧情步骤、备注信息，并在本地文档变更后自动刷新内容。
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## 功能特性
+
+- 双窗口悬浮层
+  - 主窗口用于显示备注区和剧情区。
+  - 独立 `Action Bar` 提供上一步 / 下一步切换能力。
+- 本地文档驱动
+  - 支持通过文件选择器加载 `.md` / `.txt` 文件。
+  - 支持把文档直接拖拽到窗口中加载。
+  - Rust 侧使用文件监听器自动追踪变更并重新解析。
+- 剧情焦点展示
+  - 当前步骤居中高亮。
+  - 邻近步骤和远端步骤使用不同透明度与缩放，便于快速扫读。
+- 覆盖层交互能力
+  - 支持拖动窗口。
+  - 支持极简模式。
+  - 支持鼠标穿透。
+  - 支持字体缩放。
+  - 支持窗口最小化和退出。
+- Windows 定制行为
+  - 无边框、透明、置顶窗口。
+  - 使用 Win32 API 控制阴影、边框和鼠标穿透热区。
+
+## 适用场景
+
+这个项目适合在游玩 POE 时，把剧情路线、任务备注、跑图步骤悬浮显示在桌面上，减少在浏览器、笔记软件和游戏之间来回切换的频率。
+
+## 技术栈
+
+- 前端：Vue 3、TypeScript、Vite、Vue Router、Pinia
+- 样式：Tailwind CSS v4
+- 桌面端：Tauri 2
+- 后端：Rust
+- 文件监听：`notify`
+- Windows 原生能力：`windows`、`window-vibrancy`
+
+## 运行环境
+
+建议环境：
+
+- Node.js 20+
+- npm 10+
+- Rust 1.77.2+
+- Windows 10 / 11
+
+说明：
+
+- 项目中的鼠标穿透、窗口边框处理等核心能力主要针对 Windows 实现。
+- 在非 Windows 平台上，部分 Tauri 命令会退化或不可用。
+
+## 快速开始
+
+安装依赖：
+
+```bash
+npm install
+```
+
+启动前端开发服务：
+
+```bash
+npm run dev
+```
+
+启动 Tauri 桌面应用：
+
+```bash
+npm run tauri dev
+```
+
+构建前端：
+
+```bash
+npm run build
+```
+
+构建桌面应用：
+
+```bash
+npm run tauri build
+```
+
+## 使用方式
+
+### 1. 加载文档
+
+可以通过两种方式加载文档：
+
+- 点击主窗口顶部的 `📂` 按钮选择 `.md` 或 `.txt` 文件
+- 直接将本地文件拖拽到窗口中
+
+加载后，Rust 后端会立即解析文件，并启动文件监听。后续只要你保存文档，界面就会自动刷新。
+
+### 2. 控制剧情进度
+
+- 在主窗口中查看当前备注与步骤
+- 在独立 `Action Bar` 上点击左右箭头切换步骤
+- 当前步骤会居中放大显示
+
+### 3. 使用窗口功能
+
+主窗口顶部工具栏支持：
+
+- `📂` 加载文档
+- 缩小字体
+- 放大字体
+- 切换极简模式
+- 切换鼠标穿透
+- 最小化
+- 关闭程序
+
+### 4. 鼠标穿透说明
+
+开启鼠标穿透后，窗口主体区域会尽量忽略鼠标事件，但窗口顶部保留一个约 `48px` 的热区，用于避免完全无法重新操作窗口。
+
+## 文档格式
+
+解析器会从文档中读取两个区域：
+
+- `注释区：`
+- `剧情区：`
+
+### 规则
+
+- `注释区：` 之后的内容会被当作备注文本展示。
+- `剧情区：` 之后的内容会被解析为步骤列表。
+- `# 标题` 会被识别为章节名。
+- 章节标题下的每一行非空文本都会被视为一个剧情步骤。
+- 文件支持 `UTF-8`、`GBK`、`GB18030` 编码。
+
+### 示例
+
+```md
+这里是不会被解析的头部说明。
+
+注释区：
+开荒时记得补抗性。
+打完关键 Boss 后回城交任务。
+
+剧情区：
+# 第一章
+进入城镇
+领取初始任务
+前往海滩
+
+# 第二章
+前往营地
+清理蜘蛛区域
+```
+
+## 项目结构
+
+```text
+.
+├─ src/
+│  ├─ views/
+│  │  ├─ MainOverlay.vue    # 主覆盖窗口
+│  │  └─ ActionBar.vue      # 独立控制条窗口
+│  ├─ store/
+│  │  └─ overlay.ts         # 前端状态管理
+│  ├─ router.ts             # 路由定义
+│  ├─ main.ts               # Vue 应用入口
+│  └─ style.css             # 全局样式与 Tailwind 主题变量
+├─ src-tauri/
+│  ├─ src/
+│  │  ├─ lib.rs             # Tauri 初始化与命令注册
+│  │  ├─ watcher.rs         # 文件监听与事件回推
+│  │  ├─ parser.rs          # 文档解析逻辑
+│  │  ├─ drag.rs            # 窗口拖动命令
+│  │  └─ win_api.rs         # Windows 原生窗口控制
+│  ├─ tauri.conf.json       # 窗口配置与打包配置
+│  └─ Cargo.toml            # Rust 依赖配置
+└─ README.md
+```
+
+## 核心实现说明
+
+### 前端
+
+- 使用 Pinia 保存当前步骤、备注内容、字体大小、极简模式和鼠标穿透状态。
+- 主窗口通过监听 `parsed-document` 事件接收 Rust 侧解析结果。
+- `Action Bar` 通过事件总线发送 `action-bar-prev` / `action-bar-next` 控制进度。
+
+### Rust / Tauri
+
+- `start_file_watcher` 会先立即解析文件，再注册监听器。
+- 文件变化经过约 `400ms` 防抖后重新解析，避免频繁保存触发过多刷新。
+- `parser.rs` 会为每条步骤生成稳定哈希 ID，用于在文档更新后尽量恢复原有进度。
+- Windows 平台通过 Win32 API 实现鼠标穿透和窗口边框控制。
+
+## 当前状态与已知问题
+
+当前仓库里的 `README.md` 已更新为项目文档，但代码本身仍有一个现存构建问题：
+
+- `npm run build` 目前失败。
+- 根据 [build.log](c:\Users\admin\build\poe-overlay-v3\build.log)，Tailwind 在处理 [src/views/MainOverlay.vue](c:\Users\admin\build\poe-overlay-v3\src\views\MainOverlay.vue) 的样式时报告 `Cannot apply unknown utility class 'px-2'`。
+- 这意味着 README 中的构建命令是项目目标流程，不代表当前仓库状态下已经可直接成功构建。
+
+如果要继续完善项目，建议优先修复这条 Tailwind 样式编译错误。
+
+## 后续可扩展方向
+
+- 增加全局快捷键支持
+- 增加文档格式校验和错误提示
+- 增加进度持久化
+- 增加多套 POE 路线模板
+- 增加章节跳转与搜索能力
