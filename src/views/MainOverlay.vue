@@ -121,9 +121,6 @@ onUnmounted(() => {
 });
 
 onMounted(async () => {
-  // 加载持久化状态
-  await store.initializeStore();
-
   document.addEventListener('click', onDocClick, true);
   unlistenPrev = await listen('action-bar-prev', () => store.prevStep());
   unlistenNext = await listen('action-bar-next', () => store.nextStep());
@@ -131,6 +128,9 @@ onMounted(async () => {
   unlistenParsed = await listen<{notes: string, steps: {id: string, chapter: string, text: string}[]}>('parsed-document', (event) => {
     store.updateParsedDocument(event.payload);
   });
+
+  // 必须在监听器注册完毕后，再加载持久化状态并触发文件监听，否则会漏掉第一次冷启动的 parsed-document 回调
+  await store.initializeStore();
 
   // 使用 Tauri 原生拖拽事件，可靠获取本地文件路径
   const win = getCurrentWindow();
@@ -217,12 +217,13 @@ onMounted(async () => {
           <Transition name="fade">
             <div 
               v-if="showChapterMenu" 
-              class="absolute top-full left-1/2 -translate-x-1/2 mt-2 py-2 w-40 max-h-[250px] overflow-y-auto bg-gray-900 border border-poe-gold/30 rounded shadow-xl z-50 custom-scrollbar"
+              class="absolute top-full left-1/2 -translate-x-1/2 mt-2 py-2 w-23 max-h-[250px] overflow-y-auto bg-gray-900 border border-poe-gold/30 rounded shadow-xl z-50 custom-scrollbar"
             >
               <div 
                 v-for="chapter in store.chapterList" 
                 :key="chapter.startIndex"
-                class="px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white cursor-pointer transition-colors"
+                class="px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white cursor-pointer transition-colors whitespace-nowrap overflow-hidden text-ellipsis"
+                :title="chapter.name"
                 @click="() => { store.jumpToStep(chapter.startIndex); showChapterMenu = false; }"
               >
                 {{ chapter.name }}

@@ -14,8 +14,8 @@
       {
         "title": "poe overlay",
         "label": "main",
-        "width": 300,
-        "height": 460,
+        "width": 373,
+        "height": 485,
         "x": 20,
         "y": 50,
         "resizable": true,

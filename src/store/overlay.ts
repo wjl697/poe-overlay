@@ -46,15 +46,16 @@ export const useOverlayStore = defineStore('overlay', {
 
                 if (path) {
                     this.lastDocumentPath = path;
-                    // 如果有历史路径，立即请求后端拉取并监听
-                    await invoke('start_file_watcher', { path });
 
-                    // 注意：如果后端解析完立即通过 tauri 事件发回来，updateParsedDocument 
-                    // 此时还不知道初始的 index 该设置多少，所以我们暂存到本类实例上
+                    // 注意：由于 start_file_watcher 会触发 rust 异步发回 parsed-document 事件，
+                    // 我们必须在它触发之前，先把从本地取出的持久化进度预热到状态机里，
+                    // 否则 updateParsedDocument 触发时 currentStepIndex 依然是默认值 0 导致覆盖存档。
                     if (typeof targetIndex === 'number') {
-                        // 我们借用 `currentStepIndex` 预热，稍后 updateParsedDocument 看到没有 oldChapter 时会当成新数据取用
                         this.currentStepIndex = targetIndex;
                     }
+
+                    // 如果有历史路径，请求后端拉取并监听
+                    await invoke('start_file_watcher', { path });
                 }
             } catch (err) {
                 console.error("Failed to load store persistence:", err);
