@@ -151,30 +151,6 @@ npm run tauri build
 清理蜘蛛区域
 ```
 
-## 项目结构
-
-```text
-.
-├─ src/
-│  ├─ views/
-│  │  ├─ MainOverlay.vue    # 主覆盖窗口
-│  │  └─ ActionBar.vue      # 独立控制条窗口
-│  ├─ store/
-│  │  └─ overlay.ts         # 前端状态管理
-│  ├─ router.ts             # 路由定义
-│  ├─ main.ts               # Vue 应用入口
-│  └─ style.css             # 全局样式与 Tailwind 主题变量
-├─ src-tauri/
-│  ├─ src/
-│  │  ├─ lib.rs             # Tauri 初始化与命令注册
-│  │  ├─ watcher.rs         # 文件监听与事件回推
-│  │  ├─ parser.rs          # 文档解析逻辑
-│  │  ├─ drag.rs            # 窗口拖动命令
-│  │  └─ win_api.rs         # Windows 原生窗口控制
-│  ├─ tauri.conf.json       # 窗口配置与打包配置
-│  └─ Cargo.toml            # Rust 依赖配置
-└─ README.md
-```
 
 ## 核心实现说明
 
