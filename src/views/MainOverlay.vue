@@ -260,7 +260,7 @@ onMounted(async () => {
           @click="store.toggleMinimal"
           class="icon-btn"
           :class="store.isMinimal ? 'text-poe-gold' : 'text-gray-400'"
-          :data-tip="store.isMinimal ? '切换到完整模式' : '切换到极简模式'"
+          :data-tip="store.isMinimal ? '切换到边框模式' : '切换到极简模式'"
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
             <rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5"/>

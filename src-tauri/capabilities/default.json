@@ -11,6 +11,7 @@
     "core:event:default",
     "core:window:default",
     "dialog:allow-open",
-    "store:default"
+    "store:default",
+    "window-state:default"
   ]
 }

@@ -173,6 +173,11 @@ pub fn run() {
                   }
                 }
               }
+              tauri::WindowEvent::CloseRequested { api, .. } => {
+                // 当通过任务栏右键或其他系统级方式关闭主窗口时，拦截默认行为，直接退出整个应用
+                api.prevent_close();
+                handle.exit(0);
+              }
               _ => {}
             }
           });
