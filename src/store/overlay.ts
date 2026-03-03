@@ -2,6 +2,13 @@ import { defineStore } from 'pinia';
 import { invoke } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
 import { LazyStore } from '@tauri-apps/plugin-store';
+import {
+    cloneInputBindings,
+    createDefaultInputBindings,
+    createEmptyInputBindingsStatus,
+    type InputBindingsConfig,
+    type InputBindingsStatus,
+} from '../lib/inputBindings';
 
 const appStore = new LazyStore('store.json');
 
@@ -22,7 +29,9 @@ export const useOverlayStore = defineStore('overlay', {
         notes: "等待解析文档...",
 
         // 持久化数据
-        lastDocumentPath: ""
+        lastDocumentPath: "",
+        inputBindings: createDefaultInputBindings(),
+        inputBindingStatus: createEmptyInputBindingsStatus(),
     }),
     getters: {
         chapterList: (state): { name: string, startIndex: number }[] => {
@@ -43,6 +52,7 @@ export const useOverlayStore = defineStore('overlay', {
                 // 从本地加载上一次关闭前的缓存数据
                 const path = await appStore.get<string>('lastDocumentPath');
                 const targetIndex = await appStore.get<number>('lastTargetIndex');
+                const bindings = await appStore.get<InputBindingsConfig>('inputBindings');
 
                 if (path) {
                     this.lastDocumentPath = path;
@@ -57,9 +67,41 @@ export const useOverlayStore = defineStore('overlay', {
                     // 如果有历史路径，请求后端拉取并监听
                     await invoke('start_file_watcher', { path });
                 }
+
+                if (bindings) {
+                    this.inputBindings = cloneInputBindings(bindings);
+                }
+
+                await this.applyInputBindings();
             } catch (err) {
                 console.error("Failed to load store persistence:", err);
             }
+        },
+        async applyInputBindings() {
+            try {
+                const status = await invoke<InputBindingsStatus>('apply_input_bindings', {
+                    config: this.inputBindings,
+                });
+                this.inputBindingStatus = status;
+                return status;
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                this.inputBindingStatus = {
+                    ...createEmptyInputBindingsStatus(),
+                    errors: [message],
+                };
+                throw err;
+            }
+        },
+        async saveInputBindings(config: InputBindingsConfig) {
+            this.inputBindings = cloneInputBindings(config);
+            await appStore.set('inputBindings', this.inputBindings);
+            await appStore.save();
+            return this.applyInputBindings();
+        },
+        async resetInputBindings() {
+            const defaults = createDefaultInputBindings();
+            return this.saveInputBindings(defaults);
         },
         async saveCurrentProgress() {
             // 防抖存储防止频繁写入硬盘

@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import {
+  INPUT_BINDING_OPTIONS,
+  cloneInputBindings,
+  createDefaultInputBindings,
+  fromBindingOptionValue,
+  toBindingOptionValue,
+  type InputBindingsConfig,
+} from '../lib/inputBindings';
 import { useOverlayStore } from '../store/overlay';
 
 const store = useOverlayStore();
@@ -21,6 +29,9 @@ import { onMounted, onUnmounted, onBeforeUpdate, ref, watch, nextTick } from 'vu
 const isDragOver = ref(false);
 const showDonate = ref(false);
 const showChapterMenu = ref(false);
+const showBindingsPanel = ref(false);
+const isSavingBindings = ref(false);
+const bindingsDraft = ref<InputBindingsConfig>(cloneInputBindings(store.inputBindings));
 
 // 动态计算中心焦点的滚动位移
 const scrollOffsetY = ref(0);
@@ -94,6 +105,87 @@ const closeWindow = () => invoke('close_window');
 
 const donateRef = ref<HTMLElement | null>(null);
 const chapterMenuRef = ref<HTMLElement | null>(null);
+const bindingsPanelRef = ref<HTMLElement | null>(null);
+const inputBindingOptions = INPUT_BINDING_OPTIONS;
+
+const openBindingsPanel = () => {
+  bindingsDraft.value = cloneInputBindings(store.inputBindings);
+  showBindingsPanel.value = true;
+};
+
+const closeBindingsPanel = () => {
+  showBindingsPanel.value = false;
+  bindingsDraft.value = cloneInputBindings(store.inputBindings);
+};
+
+const bindingDraftValue = (field: 'prevStep' | 'nextStep') => toBindingOptionValue(bindingsDraft.value[field]);
+
+const setBindingDraft = (field: 'prevStep' | 'nextStep', rawValue: string) => {
+  bindingsDraft.value[field] = fromBindingOptionValue(rawValue);
+};
+
+const onBindingChange = (field: 'prevStep' | 'nextStep', event: Event) => {
+  const target = event.target as HTMLSelectElement | null;
+  if (target) {
+    setBindingDraft(field, target.value);
+  }
+};
+
+const currentBindingStatus = () => {
+  const status = store.inputBindingStatus;
+
+  if (!bindingsDraft.value.enabled) {
+    return {
+      text: '输入绑定已关闭，控制条会保持显示。',
+      className: 'status-muted',
+    };
+  }
+
+  if (status.errors.length > 0) {
+    return {
+      text: status.errors[0],
+      className: 'status-error',
+    };
+  }
+
+  if (status.prevRegistered && status.nextRegistered) {
+    return {
+      text: status.actionBarHidden
+        ? '输入绑定已生效，控制条已隐藏。'
+        : '输入绑定已生效。',
+      className: 'status-ok',
+    };
+  }
+
+  if (status.prevRegistered || status.nextRegistered) {
+    return {
+      text: '部分绑定已生效，控制条会保持显示。',
+      className: 'status-warn',
+    };
+  }
+
+  return {
+    text: '当前无可用输入绑定，控制条会保持显示。',
+    className: 'status-muted',
+  };
+};
+
+const saveBindings = async () => {
+  isSavingBindings.value = true;
+  try {
+    await store.saveInputBindings(bindingsDraft.value);
+    showBindingsPanel.value = false;
+  } catch (err) {
+    console.error('Failed to save input bindings:', err);
+  } finally {
+    isSavingBindings.value = false;
+  }
+};
+
+const resetBindings = async () => {
+  bindingsDraft.value = createDefaultInputBindings();
+  await saveBindings();
+};
 
 // 点击外部关闭弹窗
 const onDocClick = (e: MouseEvent) => {
@@ -103,6 +195,9 @@ const onDocClick = (e: MouseEvent) => {
   }
   if (showChapterMenu.value && chapterMenuRef.value && !chapterMenuRef.value.contains(target)) {
     showChapterMenu.value = false;
+  }
+  if (showBindingsPanel.value && bindingsPanelRef.value && !bindingsPanelRef.value.contains(target)) {
+    closeBindingsPanel();
   }
 };
 
@@ -237,6 +332,95 @@ onMounted(async () => {
         <button @click="loadDocViaDialog" class="icon-btn text-blue-400" data-tip="加载文档" data-pos="bottom">
           📂
         </button>
+        <!-- 输入绑定设置 -->
+        <div ref="bindingsPanelRef" class="relative" @mousedown.stop>
+          <button
+            @click="showBindingsPanel ? closeBindingsPanel() : openBindingsPanel()"
+            class="icon-btn"
+            :class="store.inputBindingStatus.prevRegistered || store.inputBindingStatus.nextRegistered ? 'text-emerald-400 hover:text-emerald-300' : 'text-gray-400'"
+            data-tip="输入绑定"
+            data-pos="bottom"
+          >
+            ⌨
+          </button>
+          <Transition name="fade">
+            <div
+              v-if="showBindingsPanel"
+              class="absolute top-full right-0 mt-2 w-[280px] bg-gray-900/98 border border-poe-gold/25 rounded-xl shadow-2xl p-4 z-50 flex flex-col gap-3"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <div class="text-sm font-semibold text-gray-100">输入绑定</div>
+                  <p class="text-[11px] text-gray-500 mt-1">仅支持单键和鼠标侧键，不支持组合键。</p>
+                </div>
+                <button class="icon-btn !w-6 !h-6 text-gray-500" @click="closeBindingsPanel">✕</button>
+              </div>
+
+              <label class="panel-check">
+                <input v-model="bindingsDraft.enabled" type="checkbox" />
+                <span>启用输入绑定</span>
+              </label>
+
+              <div class="flex flex-col gap-1.5">
+                <label class="panel-label">上一步</label>
+                <select
+                  class="panel-select"
+                  :value="bindingDraftValue('prevStep')"
+                  @change="onBindingChange('prevStep', $event)"
+                >
+                  <option
+                    v-for="option in inputBindingOptions"
+                    :key="`prev-${option.kind}-${option.value}`"
+                    :value="`${option.kind}:${option.value}`"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <label class="panel-label">下一步</label>
+                <select
+                  class="panel-select"
+                  :value="bindingDraftValue('nextStep')"
+                  @change="onBindingChange('nextStep', $event)"
+                >
+                  <option
+                    v-for="option in inputBindingOptions"
+                    :key="`next-${option.kind}-${option.value}`"
+                    :value="`${option.kind}:${option.value}`"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+              </div>
+
+              <label class="panel-check" :class="{ 'opacity-60': !bindingsDraft.enabled }">
+                <input v-model="bindingsDraft.hideActionBarWhenActive" type="checkbox" :disabled="!bindingsDraft.enabled" />
+                <span>启用后隐藏控制条</span>
+              </label>
+
+              <p class="text-[11px] text-gray-500 leading-relaxed">
+                只有“上一步”和“下一步”都绑定成功时，控制条才会隐藏。
+              </p>
+              <p v-if="!store.inputBindingStatus.mouseSupported" class="text-[11px] text-amber-300/90 leading-relaxed">
+                当前平台不支持鼠标侧键绑定。
+              </p>
+              <div class="binding-status" :class="currentBindingStatus().className">
+                {{ currentBindingStatus().text }}
+              </div>
+
+              <div class="flex items-center justify-end gap-2 pt-1">
+                <button class="panel-btn panel-btn-secondary" :disabled="isSavingBindings" @click="resetBindings">
+                  恢复默认
+                </button>
+                <button class="panel-btn panel-btn-primary" :disabled="isSavingBindings" @click="saveBindings">
+                  {{ isSavingBindings ? '保存中...' : '保存' }}
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
         <div class="sep"></div>
         <!-- 缩小字体 -->
         <button @click="store.zoomOut" class="icon-btn" data-tip="缩小字体">
@@ -446,6 +630,62 @@ onMounted(async () => {
 /* 分隔线 */
 .sep {
   @apply w-[1px] h-4 bg-gray-700 mx-0.5;
+}
+
+.panel-label {
+  @apply text-[11px] font-semibold tracking-wide text-gray-400;
+}
+
+.panel-select {
+  @apply w-full rounded-md border border-gray-700 bg-black/40 px-2.5 py-2 text-sm text-gray-100 outline-none transition-colors;
+}
+
+.panel-select:focus {
+  @apply border-poe-gold;
+}
+
+.panel-check {
+  @apply flex items-center gap-2 text-sm text-gray-200;
+}
+
+.panel-check input {
+  accent-color: #cfa86d;
+}
+
+.panel-btn {
+  @apply rounded-md px-3 py-1.5 text-xs font-semibold transition-colors;
+}
+
+.panel-btn:disabled {
+  @apply cursor-not-allowed opacity-60;
+}
+
+.panel-btn-secondary {
+  @apply bg-gray-800 text-gray-200 hover:bg-gray-700;
+}
+
+.panel-btn-primary {
+  @apply bg-poe-gold/90 text-black hover:bg-poe-gold;
+}
+
+.binding-status {
+  @apply rounded-md border px-2.5 py-2 text-[11px] leading-relaxed;
+}
+
+.status-ok {
+  @apply border-emerald-500/30 bg-emerald-500/10 text-emerald-200;
+}
+
+.status-warn {
+  @apply border-amber-500/30 bg-amber-500/10 text-amber-200;
+}
+
+.status-error {
+  @apply border-red-500/30 bg-red-500/10 text-red-200;
+}
+
+.status-muted {
+  @apply border-gray-700 bg-black/30 text-gray-400;
 }
 
 /* 最小化/关闭：无 tooltip，稍小尺寸 */

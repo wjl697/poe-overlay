@@ -1,6 +1,7 @@
 mod win_api;
 mod watcher;
 mod drag;
+mod input_bindings;
 pub mod parser;
 
 
@@ -117,6 +118,7 @@ pub fn run() {
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+    .manage(input_bindings::InputBindingState::default())
     .manage(watcher::FileWatcherState {
         watcher: std::sync::Mutex::new(None),
         debounce_counter: std::sync::Arc::new(std::sync::Mutex::new(0)),
@@ -126,6 +128,7 @@ pub fn run() {
         set_shadow,
         minimize_window,
         close_window,
+        input_bindings::apply_input_bindings,
         watcher::start_file_watcher,
         watcher::stop_file_watcher,
         drag::start_drag,
@@ -158,9 +161,16 @@ pub fn run() {
             match event {
               tauri::WindowEvent::Focused(true) => {
                 // 当主窗口获得焦点时，确保控制条显示
-                if let Some(actionbar) = handle.get_webview_window("actionbar") {
-                  let _ = actionbar.unminimize();
-                  let _ = actionbar.show();
+                let hidden = {
+                  let state = handle.state::<input_bindings::InputBindingState>();
+                  input_bindings::is_action_bar_hidden(&state)
+                };
+
+                if !hidden {
+                  if let Some(actionbar) = handle.get_webview_window("actionbar") {
+                    let _ = actionbar.unminimize();
+                    let _ = actionbar.show();
+                  }
                 }
               }
               tauri::WindowEvent::Resized(_) => {
