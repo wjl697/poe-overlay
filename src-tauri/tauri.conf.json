@@ -19,6 +19,7 @@
         "x": 20,
         "y": 50,
         "resizable": true,
+        "maximizable": false,
         "fullscreen": false,
         "transparent": true,
         "decorations": false,

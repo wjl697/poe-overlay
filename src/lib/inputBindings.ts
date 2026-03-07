@@ -27,22 +27,32 @@ export interface InputBindingOption {
   value: string
 }
 
-export const INPUT_BINDING_OPTIONS: InputBindingOption[] = [
-  { label: '未设置', kind: 'none', value: '' },
-  { label: '鼠标侧键 1', kind: 'mouse', value: 'side1' },
-  { label: '鼠标侧键 2', kind: 'mouse', value: 'side2' },
-  { label: 'F1', kind: 'keyboard', value: 'F1' },
-  { label: 'F2', kind: 'keyboard', value: 'F2' },
-  { label: 'F3', kind: 'keyboard', value: 'F3' },
-  { label: 'F4', kind: 'keyboard', value: 'F4' },
-  { label: 'F5', kind: 'keyboard', value: 'F5' },
-  { label: 'F6', kind: 'keyboard', value: 'F6' },
-  { label: 'F7', kind: 'keyboard', value: 'F7' },
-  { label: 'F8', kind: 'keyboard', value: 'F8' },
-  { label: 'F9', kind: 'keyboard', value: 'F9' },
-  { label: 'F10', kind: 'keyboard', value: 'F10' },
-  { label: 'F11', kind: 'keyboard', value: 'F11' },
-  { label: 'F12', kind: 'keyboard', value: 'F12' },
+const KEYBOARD_BINDING_OPTIONS: InputBindingOption[] = [
+  ...Array.from({ length: 12 }, (_, index) => ({
+    label: `F${index + 1}`,
+    kind: 'keyboard' as const,
+    value: `F${index + 1}`,
+  })),
+  ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letter) => ({
+    label: letter,
+    kind: 'keyboard' as const,
+    value: `Key${letter}`,
+  })),
+  ...Array.from({ length: 10 }, (_, index) => ({
+    label: `${index}`,
+    kind: 'keyboard' as const,
+    value: `Digit${index}`,
+  })),
+  ...Array.from({ length: 10 }, (_, index) => ({
+    label: `小键盘 ${index}`,
+    kind: 'keyboard' as const,
+    value: `Numpad${index}`,
+  })),
+  { label: '空格', kind: 'keyboard', value: 'Space' },
+  { label: 'Tab', kind: 'keyboard', value: 'Tab' },
+  { label: '回车', kind: 'keyboard', value: 'Enter' },
+  { label: '退格', kind: 'keyboard', value: 'Backspace' },
+  { label: 'Esc', kind: 'keyboard', value: 'Escape' },
   { label: 'PageUp', kind: 'keyboard', value: 'PageUp' },
   { label: 'PageDown', kind: 'keyboard', value: 'PageDown' },
   { label: 'Home', kind: 'keyboard', value: 'Home' },
@@ -53,6 +63,13 @@ export const INPUT_BINDING_OPTIONS: InputBindingOption[] = [
   { label: '下方向键', kind: 'keyboard', value: 'ArrowDown' },
   { label: '左方向键', kind: 'keyboard', value: 'ArrowLeft' },
   { label: '右方向键', kind: 'keyboard', value: 'ArrowRight' },
+]
+
+export const INPUT_BINDING_OPTIONS: InputBindingOption[] = [
+  { label: '未设置', kind: 'none', value: '' },
+  { label: '鼠标侧键 1', kind: 'mouse', value: 'side1' },
+  { label: '鼠标侧键 2', kind: 'mouse', value: 'side2' },
+  ...KEYBOARD_BINDING_OPTIONS,
 ]
 
 export function createDefaultInputBindings(): InputBindingsConfig {

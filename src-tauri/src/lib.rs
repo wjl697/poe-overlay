@@ -140,6 +140,10 @@ pub fn run() {
       {
         use tauri::Manager;
         if let Some(window) = app.get_webview_window("main") {
+          let _ = window.set_maximizable(false);
+          if let Ok(true) = window.is_maximized() {
+            let _ = window.unmaximize();
+          }
           win_api::set_window_shadow(&window, true);
         }
       }
