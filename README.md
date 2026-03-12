@@ -1,4 +1,4 @@
-# POE Overlay V3
+# POE Overlay
 
 POE Overlay V3 是一个为《Path of Exile》剧情推进场景设计的桌面悬浮窗工具。应用基于 `Tauri 2 + Rust + Vue 3 + TypeScript + Pinia + Tailwind CSS` 构建，运行时提供一个主覆盖窗口和一个独立的迷你控制条，用来展示剧情步骤、备注信息，并在本地文档变更后自动刷新内容。
 
